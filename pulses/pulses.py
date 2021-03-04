@@ -56,12 +56,16 @@ class Pulses:
         pull()                      # get start timeout value
 
 # start section: wait for a transition up to start_timeout ticks
-        mov(y, pins)                # get the initial pin state
+        mov(isr, null)
+        in_(pins, 1)                # get the initial pin state
+        mov(y, isr)                 # cannot use mov(y, pins)
         jmp("start_timeout")
 
         label("trigger")
         mov(osr, x)                 # save the decremented timeout
-        mov(x, pins)                # get the actual pin state
+        mov(isr, null)              # clear ISR
+        in_(pins, 1)                # and get a clean 1/0
+        mov(x, isr)                 # get the actual pin state
         jmp(x_not_y, "start")       # Transition found
 
         label("start_timeout")      # test for start timeout
@@ -71,13 +75,11 @@ class Pulses:
 # trigger seen or timeout
 # get the pulse counter, bit_timeout and report the inital state
         label("start")              # got a trigger, go
+        push(block)                 # report the last pin value
         pull()                      # pull bit count
         mov(y, osr)                 # store it into the counter
         pull()                      # get the bit timeout value
                                     # keep it in osr
-        mov(isr, null)              # clear isr
-        in_(pins, 1)                # signal the start level
-        push(block)                 # and report it
 
 # pulse loop section, go and time pulses
         jmp(y_dec, "get_pulse")     # Initial decrement & test for zero
