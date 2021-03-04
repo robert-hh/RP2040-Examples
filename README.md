@@ -1,0 +1,1 @@
+Some excercises for RP2040 and its PIO 
