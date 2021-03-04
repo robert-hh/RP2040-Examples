@@ -40,7 +40,7 @@ class Pulses:
                 raise (ValueError, "frequency too high")
             self.sm_put_freq = sm_freq
             self.sm_put = rp2.StateMachine(self.sm_put_nr, self.sm_put_pulses,
-                freq=self.sm_put_freq, set_base=put_pin)
+                freq=self.sm_put_freq, out_base=put_pin)
             self.sm_put.irq(self.irq_finished)
         else:
             self.sm_put = None
@@ -113,7 +113,8 @@ class Pulses:
 
     @staticmethod
     @rp2.asm_pio(
-        set_init=rp2.PIO.OUT_HIGH,
+        out_init=rp2.PIO.OUT_HIGH ,
+        out_shiftdir=rp2.PIO.SHIFT_RIGHT,
         autopull=False,
     )
     def sm_put_pulses():
@@ -121,41 +122,26 @@ class Pulses:
         pull()                  # get the number of pulses
         mov(y, osr)
         pull()                  # get start level
-        mov(x, osr)
-        jmp(x_dec, "hi_pulse")  # start with 1
+        mov(isr, osr)           # save to isr
 
-# create the low pulse
-        label("low_pulse")
-        jmp(y_dec, "next_low")  # finished?
+        label("pulse_loop")
+        jmp(y_dec, "get_time")  # finished?
         jmp("end")              # yes, tell mother
 
-        label("next_low")       # no, the go
+        label("get_time")       # no, the go
         pull()                  # get the duration
         mov(x, osr)
-        jmp(x_dec,"set_low")    # Zero length?
-        jmp("hi_pulse")         # yes, next pulse
+        mov(osr, isr)           # restore bit level from isr
+        mov(isr, invert(isr))   # and toggle isr
+        jmp(x_dec, "set_pin")   # test pulse length
+        jmp("pulse_loop")       # if zero, next pulse
 
-        label("set_low")        # finally go
-        set(pins, 0)
-        label("low")
-        jmp(x_dec, "low")
+        label("set_pin")        # now set the pin value
+        out(pins, 1)
 
-# create the high pulse
-        label("hi_pulse")
-        jmp(y_dec, "next_hi")   # finished ?
-        jmp("end")              # yes, tell mother
-
-        label("next_hi")        # no, then next check
-        pull()                  # get the duration
-        mov(x, osr)
-        jmp(x_dec, "set_high")  # Is it zero?
-        jmp("low_pulse")        # yes, next pulse
-
-        label("set_high")       # no, now Pulse
-        set(pins, 1)
-        label("high")
-        jmp(x_dec, "high")
-        jmp("low_pulse")        # now another low pulse
+        label("count")          # wait x ticks
+        jmp(x_dec, "count")
+        jmp("pulse_loop")       # and start over
 
         label("end")
         irq(noblock, rel(0))    # wave finished!
@@ -191,7 +177,7 @@ class Pulses:
         print(buffer)
         # compensate handling time
         for i in range(len(buffer)):
-            buffer[i] = max(0, buffer[i] - 5)
+            buffer[i] = max(0, buffer[i] - 8)
         # self.sm_put.restart(self.sm_put_pulses)
         self.sm_put.active(1)
 

@@ -10,7 +10,7 @@ pulses is machine.freq()/2, for sending pulses it's
 machine.freq(). So at 125MHz MCU clock
 for timing input pulses, the resolution can be 16ns
 for a pulse range of ~120ns - ~68 seconds, for sending
-the resolution can be 8 ns and the range ~60ns to ~34 seconds.
+the resolution can be 8 ns and the range ~70ns to ~34 seconds.
 At lower frequencies for the PIO, resolution and range
 scale accordingly.
 
@@ -24,7 +24,7 @@ This creates an instance of the Pulses class. Parameters:
 - put_pin: A machine.Pin object used to send pulses. put_pin should be defined as output pin. If set or left as None, the method for sending pulses is not available.
 - frequency: The time tick frequency used to get and put pulses. It must be lower than machine.freq()/2 for get pulses and lower than machine.freq() for put pulses. The basic timing tick is 1/frequency. To avoid problems in calculating an inverse, this parameter is chosen as frequency and not as time unit.
 
-For getting pulses, state machine 0 is used, for putting it's state machine 4. Both state machines are rather large. For getting pulses, its 31 instructions, for sending pulses it's 24. So there is only little room left for other state machines.
+For getting pulses, state machine 0 is used, for putting it's state machine 4. Both state machines are rather large. For getting pulses, its 31 instructions, for sending pulses it's 17. So there is just some room left for other state machines.
 
 ## 2. Methods
 
@@ -49,7 +49,7 @@ This is the method for sending pulses. Call and parameters:
 
 pulses.put_pulses(self, buffer, start_level=1)
 
-- **buffer** must contain the pulse times in multiple of the set tick duration. It can be a bytearray or array of type "B", "H" or "I". The smallest suitable value is 5. If the duration is less than that, it will be skipped, but the level will be considered as changed. So you can use that to extend a pulse duration.
+- **buffer** must contain the pulse times in multiple of the set tick duration. It can be a bytearray or array of type "B", "H" or "I". The smallest suitable value is 9. If the duration is less than that, it will be skipped, but the level will be considered as changed. So you can use that to extend a pulse duration.
 
 - **start_level** Level of the first pulse. After that, the level will alternate.
 
