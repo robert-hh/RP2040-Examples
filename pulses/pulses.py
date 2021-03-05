@@ -25,9 +25,8 @@ class Pulses:
         if get_pin is not None:
             if (sm_freq * 2) > machine.freq():
                 raise (ValueError, "frequency too high")
-            self.sm_get_freq = sm_freq * 2
             self.sm_get = rp2.StateMachine(self.sm_get_nr, self.sm_get_pulses,
-                freq=self.sm_get_freq, jmp_pin=get_pin, in_base=get_pin,
+                freq=sm_freq * 2, jmp_pin=get_pin, in_base=get_pin,
                 set_base=get_pin)
             self.sm_get.irq(self.irq_finished)
         else:
@@ -38,9 +37,8 @@ class Pulses:
         if put_pin is not None:
             if (sm_freq) > machine.freq():
                 raise (ValueError, "frequency too high")
-            self.sm_put_freq = sm_freq
             self.sm_put = rp2.StateMachine(self.sm_put_nr, self.sm_put_pulses,
-                freq=self.sm_put_freq, out_base=put_pin)
+                freq=sm_freq, out_base=put_pin)
             self.sm_put.irq(self.irq_finished)
         else:
             self.sm_put = None
@@ -80,11 +78,9 @@ class Pulses:
         mov(y, osr)                 # store it into the counter
         pull()                      # get the bit timeout value
                                     # keep it in osr
+        jmp("check_done")
 
 # pulse loop section, go and time pulses
-        jmp(y_dec, "get_pulse")     # Initial decrement & test for zero
-        jmp("end")
-
         label("get_pulse")
         mov(x, osr)                 # preload with the max value
         jmp(pin, "count_high")      # have a high level
@@ -106,6 +102,8 @@ class Pulses:
         label("issue")              # report the result
         mov(isr, x)
         push(block)
+
+        label("check_done")         # pulse counter
         jmp(y_dec, "get_pulse")     # and go for another loop
 
         label("end")
@@ -123,25 +121,25 @@ class Pulses:
         mov(y, osr)
         pull()                  # get start level
         mov(isr, osr)           # save to isr
+        jmp("check_done")       # check pulse count
 
+# This is the main loop issueing the pulses
         label("pulse_loop")
-        jmp(y_dec, "get_time")  # finished?
-        jmp("end")              # yes, tell mother
-
-        label("get_time")       # no, the go
         pull()                  # get the duration
         mov(x, osr)
         mov(osr, isr)           # restore bit level from isr
         mov(isr, invert(isr))   # and toggle isr
         jmp(x_dec, "set_pin")   # test pulse length
-        jmp("pulse_loop")       # if zero, next pulse
+        jmp("check_done")       # if zero, next pulse
 
         label("set_pin")        # now set the pin value
         out(pins, 1)
 
         label("count")          # wait x ticks
         jmp(x_dec, "count")
-        jmp("pulse_loop")       # and start over
+
+        label("check_done")     # check if more to do
+        jmp(y_dec, "pulse_loop") # and start over
 
         label("end")
         irq(noblock, rel(0))    # wave finished!
@@ -165,7 +163,7 @@ class Pulses:
         start_state = self.sm_get.get()  # get the start state
         self.sm_get.get(buffer)  # get data
         self.sm_get.active(0)
-        buffer[0] = bit_timeout - buffer[0] + 6  # scale the first value
+        buffer[0] = bit_timeout - buffer[0] + 7  # scale the first value
         for i in range(1, len(buffer)):  # scale the other values
             buffer[i] = bit_timeout - buffer[i] + 3
         return start_state
@@ -177,7 +175,7 @@ class Pulses:
         print(buffer)
         # compensate handling time
         for i in range(len(buffer)):
-            buffer[i] = max(0, buffer[i] - 8)
+            buffer[i] = max(0, buffer[i] - 7)
         # self.sm_put.restart(self.sm_put_pulses)
         self.sm_put.active(1)
 
