@@ -45,7 +45,7 @@ state machines 4-7 are assigned to PIO1. This is a number, not the state machine
 
 ## **Example**
 
-This example contains a simple version of a DHT22 driver. It uses **wait** for the various transitions in the protocol. **wait** blocks. So this sample driver will end up stuck at the end at label wait_0 or wait_1 of the program. sm_restart() is useful to have it started again at the pull() instruction without the need to delete the state machine and create it again. sm_rx_fifo_level() is used to tell, whether data is present, and to be able to abort, if the sensor does not deliver data.
+This example contains a simple version of a DHT22 driver. It uses `wait()` for the various transitions in the protocol. `wait()` blocks. So this sample driver will end up stuck at the end at label `wait_0` or `wait_1` of the program. Calling `sm_restart()` restart the code again at the `pull()` instruction without the need to delete the state machine and create it again. `sm_rx_fifo_level()` is used to tell, whether data is present, and to be able to abort, if the sensor does not deliver data.
 
 ```
 from machine import Pin
