@@ -4,17 +4,21 @@
 
 PIO0_BASE = const(0x50200000)
 PIO1_BASE = const(0x50300000)
+
+# register indices into the array of 32 bit registers
 PIO_CTRL = const(0)
 PIO_FSTAT = const(1)
 PIO_FLEVEL = const(3)
-SM_REG_BASE = const(0x32)  # start of the SM state table
+SM_REG_BASE = const(0x32)  # start of the SM state tables
+# register offsets into the per-SM state table
 SMx_CLKDIV = const(0)
 SMx_EXECCTRL = const(1)
 SMx_SHIFTCTRL = const(2)
 SMx_ADDR = const(3)
 SMx_INSTR = const(4)
 SMx_PINCTRL = const(5)
-SMx_SIZE = const(6)
+
+SMx_SIZE = const(6)  # SM state table size
 
 @micropython.viper
 def sm_restart(sm: int, program) -> uint:
@@ -59,3 +63,125 @@ def sm_fifo_status(sm: int) -> int:
     else:  # PIO1
         pio = ptr32(uint(PIO1_BASE))
     return pio[PIO_FSTAT]
+
+#
+# PIO register byte address offsets
+#
+PIO_TXF0 = const(0x10)
+PIO_TXF1 = const(0x14)
+PIO_TXF2 = const(0x18)
+PIO_TXF3 = const(0x1c)
+PIO_RXF0 = const(0x20)
+PIO_RXF1 = const(0x24)
+PIO_RXF2 = const(0x28)
+PIO_RXF3 = const(0x2c)
+
+#
+# DMA registers
+#
+DMA_BASE = const(0x50000000)
+# Register indices into the DMA register table
+READ_ADDR = const(0)
+WRITE_ADDR = const(1)
+TRANS_COUNT = const(2)
+CTRL_TRIG = const(3)
+CTRL_ALIAS = const(4)
+TRANS_COUNT_ALIAS = const(9)
+CHAN_ABORT = const(0x111)  # Address offset / 4
+BUSY = const(1 << 24)
+#
+# Template for assembling the DMA control word
+#
+IRQ_QUIET = const(1)  # do not generate an interrupt
+CHAIN_TO = const(0)  # do not chain
+RING_SEL = const(0)
+RING_SIZE = const(0)  # no wrapping
+HIGH_PRIORITY = const(1)
+EN = const(1)
+#
+# Read from the State machine using DMA:
+# DMA channel, State machine number, buffer, buffer length
+#
+@micropython.viper
+def sm_dma_get(chan:int, sm:int, dst:ptr32, nword:int) -> int:
+
+    dma=ptr32(uint(DMA_BASE) + chan * 0x40)
+    if sm < 4:   # PIO 0
+        pio = ptr32(uint(PIO0_BASE))
+        TREQ_SEL = sm + 4  # range 4-7
+    else:  # PIO1
+        sm %= 4
+        pio = ptr32(int(PIO1_BASE))
+        TREQ_SEL = sm + 12  # range 12 - 13
+    smx = SM_REG_BASE + sm * SMx_SIZE + SMx_SHIFTCTRL  # get the push threshold
+    DATA_SIZE = (pio[smx] >> 20) & 0x1f  # to determine the transfer size
+    smx = DATA_SIZE
+    if DATA_SIZE > 16 or DATA_SIZE == 0:
+        DATA_SIZE = 2  # 32 bit transfer
+    elif DATA_SIZE > 8:
+        DATA_SIZE = 1  # 16 bit transfer
+    else:
+        DATA_SIZE = 0  # 8 bit transfer
+
+    INCR_WRITE = 1  # 1 for increment while writing
+    INCR_READ = 0  # 0 for no increment while reading
+    DMA_control_word = ((IRQ_QUIET << 21) | (TREQ_SEL << 15) | (CHAIN_TO << 11) | (RING_SEL << 10) |
+                        (RING_SIZE << 9) | (INCR_WRITE << 5) | (INCR_READ << 4) | (DATA_SIZE << 2) |
+                        (HIGH_PRIORITY << 1) | (EN << 0))
+    dma[READ_ADDR] = uint(pio) + PIO_RXF0 + sm * 4
+    dma[WRITE_ADDR] = uint(dst)
+    dma[TRANS_COUNT] = nword
+    dma[CTRL_TRIG] = DMA_control_word  # and this starts the transfer
+    return DMA_control_word
+
+#
+# Write to the State machine using DMA:
+# DMA channel, State machine number, buffer, buffer length
+#
+@micropython.viper
+def sm_dma_put(chan:int, sm:int, src:ptr32, nword:int) -> int:
+
+    dma=ptr32(uint(DMA_BASE) + chan * 0x40)
+    if sm < 4:   # PIO 0
+        pio = ptr32(uint(PIO0_BASE))
+        TREQ_SEL = sm  # range 0-3
+    else:  # PIO1
+        sm %= 4
+        pio = ptr32(uint(PIO1_BASE))
+        TREQ_SEL = sm + 8  # range 8-11
+    smx = SM_REG_BASE + sm * SMx_SIZE + SMx_SHIFTCTRL  # get the pull threshold
+    DATA_SIZE = (pio[smx] >> 25) & 0x1f  # to determine the transfer size
+    if DATA_SIZE > 16 or DATA_SIZE == 0:
+        DATA_SIZE = 2  # 32 bit transfer
+    elif DATA_SIZE > 8:
+        DATA_SIZE = 1  # 16 bit transfer
+    else:
+        DATA_SIZE = 0  # 8 bit transfer
+
+    INCR_WRITE = 0  # 1 for increment while writing
+    INCR_READ = 1  # 0 for no increment while reading
+    DMA_control_word = ((IRQ_QUIET << 21) | (TREQ_SEL << 15) | (CHAIN_TO << 11) | (RING_SEL << 10) |
+                        (RING_SIZE << 9) | (INCR_WRITE << 5) | (INCR_READ << 4) | (DATA_SIZE << 2) |
+                        (HIGH_PRIORITY << 1) | (EN << 0))
+    dma[READ_ADDR] = uint(src)
+    dma[WRITE_ADDR] = uint(pio) + PIO_TXF0 + sm * 4
+    dma[TRANS_COUNT] = nword
+    dma[CTRL_TRIG] = DMA_control_word  # and this starts the transfer
+    return DMA_control_word
+#
+# Get the current transfer count
+#
+@micropython.viper
+def sm_dma_count(chan:uint) -> int:
+    dma=ptr32(uint(DMA_BASE) + chan * 0x40)
+    return dma[TRANS_COUNT]
+
+#
+# Abort an transfer
+#
+@micropython.viper
+def sm_dma_abort(chan:uint):
+    dma=ptr32(uint(DMA_BASE) + chan * 0x40)
+    dma[CHAN_ABORT] = 1 << chan
+    while dma[CHAN_ABORT]:
+        time.sleep_us(10)
