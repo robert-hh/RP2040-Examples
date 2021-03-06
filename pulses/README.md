@@ -41,7 +41,9 @@ start_level = pulses.get_pulses(buffer, start_timeout=100_000, bit_timeout=100_0
 
 When started, get_pulses() waits for up to start_timeout for a transition, and then it will time as many pulses as fit into the buffer. It will always attempt to fill the buffer, even in case of a timeout. So do not set the timeout too long. In case of a timeout, the corresponding bit duration value will be larger than the bit_timeout.
 
-The shortest pulse that can be sampled is 7 ticks for the first pulse and 4 ticks for the remaining ones.
+The shortest pulse that can be sampled is 7 ticks for the first pulse and 4 ticks for the remaining ones.  
+
+If you want to use the DMA transfer set up with the functions from the rp2_util.py set, you have to set GET_WORD_SIZE in the source code to the proper data size of 8, 16, or 32 bit.
 
 ### 2.2 **put_pulses**
 
@@ -51,7 +53,10 @@ pulses.put_pulses(self, buffer, start_level=1)
 
 - **buffer** must contain the pulse times in multiple of the set tick duration. It can be a bytearray or array of type "B", "H" or "I". The smallest suitable value is 8. If the duration is less than that, the pulse will be skipped, the level will not change and **the following pulse will be extended by 7 ticks**. So you may use that to extend a pulse duration.  The length of a timing tick is 1/frequency of the state machine, as set in the instantiation.
 
-- **start_level** Level of the first pulse. After that, the level will alternate.
+- **start_level** Level of the first pulse. After that, the level will alternate.  
+
+If you want to use the DMA transfer set up with the functions from the rp2_util.py set, you have to set PUT_WORD_SIZE in the source code to the proper data size of 8, 16, or 32 bit.
+
 
 ## 3. Examples
 
