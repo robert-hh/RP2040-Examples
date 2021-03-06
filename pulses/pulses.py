@@ -14,8 +14,12 @@
 
 import machine
 import rp2
+import rp2_util
 import time
 import array
+
+GET_WORD_SIZE = const(32)
+PUT_WORD_SIZE = const(32)
 
 
 class Pulses:
@@ -48,6 +52,7 @@ class Pulses:
         in_shiftdir=rp2.PIO.SHIFT_LEFT,
         autopull=False,
         autopush=False,
+        push_thresh=GET_WORD_SIZE
     )
     def sm_get_pulses():
         set(pindirs, 0)             # set to input
@@ -114,6 +119,7 @@ class Pulses:
         out_init=rp2.PIO.OUT_HIGH ,
         out_shiftdir=rp2.PIO.SHIFT_RIGHT,
         autopull=False,
+        pull_thresh=PUT_WORD_SIZE
     )
     def sm_put_pulses():
         set(pindirs, 1)         # set the Pin to output
@@ -126,7 +132,7 @@ class Pulses:
 # This is the main loop issueing the pulses
         label("pulse_loop")
         pull()                  # get the duration
-        mov(x, osr)
+        out(x, PUT_WORD_SIZE)
         mov(osr, isr)           # restore bit level from isr
         mov(isr, invert(isr))   # and toggle isr
         jmp(x_dec, "set_pin")   # test pulse length
@@ -161,6 +167,9 @@ class Pulses:
 
         self.sm_get.active(1)
         start_state = self.sm_get.get()  # get the start state
+        # rp2_util.sm_dma_get(0, 0, buffer, len(buffer))
+        # while (rp2_util.sm_dma_count(0)) > 0:
+            # pass
         self.sm_get.get(buffer)  # get data
         self.sm_get.active(0)
         buffer[0] = bit_timeout - buffer[0] + 7  # scale the first value
@@ -178,10 +187,10 @@ class Pulses:
             buffer[i] = max(0, buffer[i] - 7)
         # self.sm_put.restart(self.sm_put_pulses)
         self.sm_put.active(1)
-
         self.sm_put.put(len(buffer))   # tell the size
         self.sm_put.put(start_level != 0) # tell the start level
-        self.sm_put.put(buffer)        # send the pulse train
+        # self.sm_put.put(buffer)        # send the pulse train
+        rp2_util.sm_dma_put(0, 4, buffer, len(buffer))
         while self.put_done is False:  # and wait for getting is done
             time.sleep_ms(1)
 
@@ -207,7 +216,7 @@ def get(samples=10, start_timeout=100_000, bit_timeout=100_000):
 def put(pattern="10 20 30 40", start=1):
     global pulses
     v = [int(i) for i in pattern.strip().split()]
-    ar = array.array("H", v)
+    ar = array.array("I", v)
     pulses.put_pulses(ar, start)
     print(pulses.put_done)
 
