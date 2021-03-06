@@ -181,7 +181,7 @@ def sm_dma_count(chan:uint) -> int:
 #
 @micropython.viper
 def sm_dma_abort(chan:uint):
-    dma=ptr32(uint(DMA_BASE) + chan * 0x40)
+    dma=ptr32(uint(DMA_BASE))
     dma[CHAN_ABORT] = 1 << chan
     while dma[CHAN_ABORT]:
         time.sleep_us(10)
