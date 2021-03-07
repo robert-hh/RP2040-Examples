@@ -33,7 +33,7 @@ Parameter:
 - **sm_nr** The state machine number in the range of 0-7. State machines 0-3 are assigned to PIO0,
 state machines 4-7 are assigned to PIO1. This is a number, not the state machine object.
 
-## **status = sm_status(sm_nr)**
+## **status = sm_fifo_status(sm_nr)**
 
 Returns the status word of the state machine's register FSTAT, as defined in the RP2040 hardware manual, chapter 3.7. It contains the FIFO empty/full flags of the requested state machine. 
 
@@ -44,12 +44,27 @@ state machines 4-7 are assigned to PIO1. This is a number, not the state machine
 
 The below listed symbols are provided for the flag values, which can be used to mask the results (see the example below):
 
-SM_FIFO_RXFULL  
-SM_FIFO_RXEMPTY   
-SM_FIFO_TXFULL   
-SM_FIFO_TXEMPTY   
+- SM_FIFO_RXFULL  
+- SM_FIFO_RXEMPTY   
+- SM_FIFO_TXFULL   
+- SM_FIFO_TXEMPTY   
 
-## ** ctrl = sm_dma_get(chan, sm_nr, data, nword)**
+
+## **level = sm_fifo_join(sm_nr, which)**
+
+Join the TX and RX FIFO for either RX or TX, or rmove the joint.
+
+Parameter:
+
+- **sm_nr** The state machine number in the range of 0-7. State machines 0-3 are assigned to PIO0,
+state machines 4-7 are assigned to PIO1. This is a number, not the state machine object.
+- **which** Chose mode of operation:
+
+  - 0 clear FIFO join
+  - 1 Expand RX FIFO
+  - 2 Expand TX FIFO
+
+## **ctrl = sm_dma_get(chan, sm_nr, data, nword)**
 
 Set up the DMA to transfer words from the state machine to memory.
 
@@ -65,7 +80,7 @@ The return value is the control word set in the DMA CTRL register and only inter
 
 For telling when the transfer is finished, either a IRQ raised by the state machine can be used, or reading the number of the remaining transfer count with rp2_util.dma_transfer_count() (see below.), which gets 0 when the transfer is finished. To stop a transfer use rp2_util.dma_abort().
 
-## ** ctrl = sm_dma_put(chan, sm_nr, data, nword)**
+## **ctrl = sm_dma_put(chan, sm_nr, data, nword)**
 
 Set up the DMA to transfer words from memory to the state machine.
 
@@ -79,9 +94,9 @@ state machines 4-7 are assigned to PIO1. This is a number, not the state machine
 
 The return value is the control word set in the DMA CTRL register and only interesting for debug purposes.
 
-For telling when the transfer is finished, either a IRQ raised by the state machine can be used, or reading the number of the remaining transfer count with rp2_util.dma_transfer_count() (see below.), which gets 0 when the transfer is finished. To stop a transfer use rp2_util.dma_abort().
+For telling when the transfer is finished, either a IRQ raised by the state machine can be used, or reading the number of the remaining transfer count with rp2_util.dma_transfer_count() (see below.), which gets 0 when the transfer is finished. To stop a transfer use rp2_util.dma_abort().  
 
-## ** ctrl = uart_dma_read(chan, uart_nr, data, nword)
+## **ctrl = uart_dma_read(chan, uart_nr, data, nword)**
 
 Set up the DMA to transfer words from a UART to memory.
 
@@ -96,19 +111,19 @@ The return value is the control word set in the DMA CTRL register and only inter
 
 For telling when the transfer is finished, either a IRQ raised by the state machine can be used, or reading the number of the remaining transfer count with rp2_util.dma_transfer_count() (see below.), which gets 0 when the transfer is finished. To stop a transfer use rp2_util.dma_abort().
 
-## ** dma_abort(chan)**
+## **dma_abort(chan)**
 
 Aborts the current transfer. That may be as well an unfinished previous transfer, and therefore a valid measure to start with a known state.
 
-## ** count = dma_transfer_count(chan)**
+## **count = dma_transfer_count(chan)**
 
 Returns the number of the **remaining** items to be transferred. When the transfer is finished, the value is 0.
 
-## ** count = dma_write_address(chan)**
+## **count = dma_write_address(chan)**
 
 Returns the address where the **next** transferred items will be written to.
 
-## ** count = dma_read_address(chan)**
+## **count = dma_read_address(chan)**
 
 Returns the address where the **next** transferred items will be read from.
 

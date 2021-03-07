@@ -69,7 +69,23 @@ def sm_fifo_status(sm: int) -> int:
     else:  # PIO1
         pio = ptr32(uint(PIO1_BASE))
     sm %= 4
-    return pio[PIO_FSTAT] >> sm
+    return (pio[PIO_FSTAT] >> sm) & 0x01010101
+
+@micropython.viper
+def sm_fifo_join(sm: int, action: int):
+    if sm < 4:   # PIO 0
+        pio = ptr32(uint(PIO0_BASE))
+    else:  # PIO1
+        pio = ptr32(uint(PIO1_BASE))
+    sm %= 4
+    smx = SM_REG_BASE + sm * SMx_SIZE + SMx_SHIFTCTRL
+
+    if action == 0:  # disable join
+        pio[smx] = ((pio[smx] >> 16) & 0x3fff) << 16
+    elif action == 1:  # join RX
+        pio[smx] = (((pio[smx] >> 16) & 0x3fff) | (1 << 15)) << 16
+    elif action == 2:  # join TX
+        pio[smx] = (((pio[smx] >> 16) & 0x3fff) | (1 << 14)) << 16
 
 #
 # PIO register byte address offsets
@@ -175,13 +191,13 @@ def sm_dma_put(chan:int, sm:int, src:ptr32, nword:int) -> int:
     dma[TRANS_COUNT] = nword
     dma[CTRL_TRIG] = DMA_control_word  # and this starts the transfer
     return DMA_control_word
-    
+
 #
 # UART registers
 #
 UART0_BASE = const(0x40034000)
 UART1_BASE = const(0x40038000)
-    
+
 #
 # Read from UART using DMA:
 # DMA channel, UART number, buffer, buffer length
