@@ -20,6 +20,12 @@ SMx_PINCTRL = const(5)
 
 SMx_SIZE = const(6)  # SM state table size
 
+SM_FIFO_RXFULL  = const(0x00000001)
+SM_FIFO_RXEMPTY = const(0x00000100)
+SM_FIFO_TXFULL  = const(0x00010000)
+SM_FIFO_TXEMPTY = const(0x01000000)
+
+
 @micropython.viper
 def sm_restart(sm: int, program) -> uint:
     if sm < 4:   # PIO 0
@@ -62,7 +68,8 @@ def sm_fifo_status(sm: int) -> int:
         pio = ptr32(uint(PIO0_BASE))
     else:  # PIO1
         pio = ptr32(uint(PIO1_BASE))
-    return pio[PIO_FSTAT]
+    sm %= 4
+    return pio[PIO_FSTAT] >> sm
 
 #
 # PIO register byte address offsets
@@ -168,19 +175,65 @@ def sm_dma_put(chan:int, sm:int, src:ptr32, nword:int) -> int:
     dma[TRANS_COUNT] = nword
     dma[CTRL_TRIG] = DMA_control_word  # and this starts the transfer
     return DMA_control_word
+    
+#
+# UART registers
+#
+UART0_BASE = const(0x40034000)
+UART1_BASE = const(0x40038000)
+    
+#
+# Read from UART using DMA:
+# DMA channel, UART number, buffer, buffer length
+#
+@micropython.viper
+def uart_dma_read(chan:int, uart_nr:int, data:ptr32, nword:int) -> int:
+
+    dma=ptr32(uint(DMA_BASE) + chan * 0x40)
+    if uart_nr == 0:   # UART0
+        uart_dr = uint(UART0_BASE)
+        TREQ_SEL = 21
+    else:  # UART1
+        uart_dr = uint(UART1_BASE)
+        TREQ_SEL = 23
+    DATA_SIZE = 0  # byte transfer
+    INCR_WRITE = 1  # 1 for increment while writing
+    INCR_READ = 0  # 0 for no increment while reading
+    DMA_control_word = ((IRQ_QUIET << 21) | (TREQ_SEL << 15) | (CHAIN_TO << 11) | (RING_SEL << 10) |
+                        (RING_SIZE << 9) | (INCR_WRITE << 5) | (INCR_READ << 4) | (DATA_SIZE << 2) |
+                        (HIGH_PRIORITY << 1) | (EN << 0))
+    dma[READ_ADDR] = uart_dr
+    dma[WRITE_ADDR] = uint(data)
+    dma[TRANS_COUNT] = nword
+    dma[CTRL_TRIG] = DMA_control_word  # and this starts the transfer
+    return DMA_control_word
 #
 # Get the current transfer count
 #
 @micropython.viper
-def sm_dma_count(chan:uint) -> int:
+def dma_transfer_count(chan:uint) -> int:
     dma=ptr32(uint(DMA_BASE) + chan * 0x40)
     return dma[TRANS_COUNT]
+#
+# Get the current write register value
+#
+@micropython.viper
+def dma_write_addr(chan:uint) -> int:
+    dma=ptr32(uint(DMA_BASE) + chan * 0x40)
+    return dma[WRITE_ADDR]
 
+#
+# Get the current read register value
+#
+@micropython.viper
+def dma_read_addr(chan:uint) -> int:
+    dma=ptr32(uint(DMA_BASE) + chan * 0x40)
+    return dma[READ_ADDR]
 #
 # Abort an transfer
 #
 @micropython.viper
-def sm_dma_abort(chan:uint):
+def dma_abort(chan:uint):
     dma=ptr32(uint(DMA_BASE))
     dma[CHAN_ABORT] = 1 << chan
     while dma[CHAN_ABORT]:
