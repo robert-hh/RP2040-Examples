@@ -149,7 +149,7 @@ def sm_dma_get(chan:int, sm:int, dst:ptr32, nword:int) -> int:
     INCR_WRITE = 1  # 1 for increment while writing
     INCR_READ = 0  # 0 for no increment while reading
     DMA_control_word = ((IRQ_QUIET << 21) | (TREQ_SEL << 15) | (CHAIN_TO << 11) | (RING_SEL << 10) |
-                        (RING_SIZE << 9) | (INCR_WRITE << 5) | (INCR_READ << 4) | (DATA_SIZE << 2) |
+                        (RING_SIZE << 6) | (INCR_WRITE << 5) | (INCR_READ << 4) | (DATA_SIZE << 2) |
                         (HIGH_PRIORITY << 1) | (EN << 0))
     dma[READ_ADDR] = uint(pio) + PIO_RXF0 + sm * 4
     dma[WRITE_ADDR] = uint(dst)
