@@ -127,7 +127,7 @@ Returns the address where the **next** transferred items will be written to.
 
 Returns the address where the **next** transferred items will be read from.
 
-## **Example**
+## **Examples**
 
 ### DHT22 driver
 This example contains a simple version of a DHT22 driver. It uses `wait()` for the various transitions in the protocol. `wait()` blocks. So this sample driver will end up stuck at the end at label `wait_0` or `wait_1` of the program. Calling `sm_restart()` restart the code again at the `pull()` instruction without the need to delete the state machine and create it again. `sm_rx_fifo_level()` is used to tell, whether data is present, and to be able to abort, if the sensor does not deliver data.
@@ -167,7 +167,7 @@ def DHT_pio():
 
     label("wait_1")             # wait for the 0->1 edge
     wait(1, pin, 0)             # of the actual data cycle
-nop()               [7]         # wait another 40 µs
+    nop()               [7]     # wait another 40 µs
     in_(pins, 1)                # get one bit, which is 0 or 1
                                 # that will be shifted and pushed
     jmp(pin, "wait_0")          # if it's one, wait for next bit's
