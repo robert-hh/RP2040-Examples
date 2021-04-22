@@ -160,7 +160,7 @@ class Pulses:
         if self.sm_get is None:
             raise(ValueError, "get_pulses is not enabled")
         self.get_done = False
-        # self.sm_get.restart(self.sm_get_pulses)
+        self.sm_get.restart()
         self.sm_get.put(start_timeout)  # set the start timeout
         self.sm_get.put(len(buffer))  # set number of pulses
         self.sm_get.put(bit_timeout)  # set the bit timeout
@@ -185,7 +185,7 @@ class Pulses:
         # compensate handling time
         for i in range(len(buffer)):
             buffer[i] = max(0, buffer[i] - 7)
-        # self.sm_put.restart(self.sm_put_pulses)
+        self.sm_put.restart()
         self.sm_put.active(1)
         self.sm_put.put(len(buffer))   # tell the size
         self.sm_put.put(start_level != 0) # tell the start level

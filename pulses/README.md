@@ -24,7 +24,7 @@ This creates an instance of the Pulses class. Parameters:
 - put_pin: A machine.Pin object used to send pulses. put_pin should be defined as output pin. If set or left as None, the method for sending pulses is not available.
 - frequency: The time tick frequency used to get and put pulses. It must be lower than `machine.freq()`. The basic timing tick is 1/frequency. To avoid problems in calculating an inverse, this parameter is chosen as frequency and not as time unit.
 
-For getting pulses, state machine 0 is used, for putting it's state machine 4. Both state machines are rather large. For getting pulses, its 30 instructions, for sending pulses it's 16. So there is just some room left for other state machines.
+For getting pulses, state machine 0 is used, for putting it's state machine 4. Both state machines are rather large. For getting pulses, its 30 instructions, for sending pulses it's 16. So there is just some room left for other PIO programs.
 
 ## 2. Methods
 
@@ -98,4 +98,3 @@ def put(pattern=(10, 20, 30, 40,), start=1):
 
 ## 4. What next?
 
-- Supporting DMA for data transfer
